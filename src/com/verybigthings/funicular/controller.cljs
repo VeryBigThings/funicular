@@ -34,9 +34,9 @@
                                        ctrl
                                        (fn []
                                          (let [fulfilled (reduce
-                                                           (fn [m f] (assoc m f (f payload)))
-                                                           {}
-                                                           (:on-fulfilled state))]
+                                                          (fn [m f] (assoc m f (f payload)))
+                                                          {}
+                                                          (:on-fulfilled state))]
                                            (vswap! state* assoc :committed? true :fulfilled fulfilled)
                                            (ctrl/broadcast ctrl [:funicular/after command-name] {:command command})
                                            (get fulfilled on-fulfilled))))))))))
@@ -51,9 +51,9 @@
                                     ctrl
                                     (fn []
                                       (let [rejected (reduce
-                                                       (fn [m f] (assoc m f (f payload)))
-                                                       {}
-                                                       (:on-rejected state))]
+                                                      (fn [m f] (assoc m f (f payload)))
+                                                      {}
+                                                      (:on-rejected state))]
                                         (vswap! state* assoc :committed? true :rejected rejected)
                                         (ctrl/broadcast ctrl [:funicular/error command-name] payload)
                                         (get rejected on-rejected)))))))))
@@ -106,12 +106,12 @@
                 (doseq [[deferred ids] deferred->ids]
                   (let [deferred-id->aliases (get id->aliases deferred)
                         deferred-res (reduce
-                                       (fn [acc id]
-                                         (let [r (get queries id)
-                                               aliases (get deferred-id->aliases id)]
-                                           (reduce #(assoc %1 %2 r) acc aliases)))
-                                       {}
-                                       ids)]
+                                      (fn [acc id]
+                                        (let [r (get queries id)
+                                              aliases (get deferred-id->aliases id)]
+                                          (reduce #(assoc %1 %2 r) acc aliases)))
+                                      {}
+                                      ids)]
                     (p/resolve! deferred {:queries deferred-res})))))
        (p/error (fn [err]
                   (doseq [deferred (vals deferred->ids)]
@@ -127,11 +127,11 @@
 
         errored-query-result
         (reduce-kv
-          (fn [_ _ [_ query-result]]
-            (when (contains? query-result :funicular.anomaly/category)
-              (reduced query-result)))
-          nil
-          queries)
+         (fn [_ _ [_ query-result]]
+           (when (contains? query-result :funicular.anomaly/category)
+             (reduced query-result)))
+         nil
+         queries)
         errored-command (contains? command-result :funicular.anomaly/category)]
 
     (when debug-enabled?
@@ -165,15 +165,15 @@
 
 (defn merge-queries [queued {:keys [payload deferred]}]
   (reduce-kv
-    (fn [acc query-alias query]
-      (let [query-id (or (get-in acc [:query->id query]) (keyword (gensym "req-")))]
-        (-> acc
-            (assoc-in [:query->id query] query-id)
-            (update-in [:id->aliases deferred query-id] set-conj query-alias)
-            (update-in [:deferred->ids deferred] set-conj query-id)
-            (assoc-in [:queries query-id] query))))
-    queued
-    (:queries payload)))
+   (fn [acc query-alias query]
+     (let [query-id (or (get-in acc [:query->id query]) (keyword (gensym "req-")))]
+       (-> acc
+           (assoc-in [:query->id query] query-id)
+           (update-in [:id->aliases deferred query-id] set-conj query-alias)
+           (update-in [:deferred->ids deferred] set-conj query-id)
+           (assoc-in [:queries query-id] query))))
+   queued
+   (:queries payload)))
 
 (defn make-query-requester [ctrl]
   (let [in-chan (chan)]
@@ -214,8 +214,8 @@
   ([command-name err] (get-reject-pipeline command-name err {:command [command-name err]}))
   ([command-name err payload]
    (-> (pipeline! [_ ctrl]
-         (ctrl/broadcast ctrl [:funicular/error command-name] err)
-         (throw err))
+                  (ctrl/broadcast ctrl [:funicular/error command-name] err)
+                  (throw err))
        (assoc ::command-error payload))))
 
 (defn get-resolve-pipeline [command-name {:keys [command] :as payload}]
@@ -224,8 +224,8 @@
       (let [err (p/rejected (ex-info (:funicular.anomaly/message command-result) command-result))]
         (get-reject-pipeline command-name err payload))
       (-> (pipeline! [_ ctrl]
-            (ctrl/broadcast ctrl [:funicular/after command-name] {:command (:command payload)})
-            payload)
+                     (ctrl/broadcast ctrl [:funicular/after command-name] {:command (:command payload)})
+                     payload)
           (assoc ::command-res payload)))))
 
 (defn request-command! [{:funicular/keys [url] :as ctrl} is-called-from-pipeline {:keys [command] :as payload} deferred]
@@ -256,12 +256,12 @@
                       (doseq [[d ids] deferred->ids]
                         (let [d-id->aliases (get id->aliases d)
                               d-res (reduce
-                                      (fn [acc id]
-                                        (let [r (get queries id)
-                                              aliases (get d-id->aliases id)]
-                                          (reduce #(assoc %1 %2 r) acc aliases)))
-                                      {}
-                                      ids)
+                                     (fn [acc id]
+                                       (let [r (get queries id)
+                                             aliases (get d-id->aliases id)]
+                                         (reduce #(assoc %1 %2 r) acc aliases)))
+                                     {}
+                                     ids)
                               payload {:queries d-res :command command}]
                           (if (and (= d deferred) is-called-from-pipeline)
                             (p/resolve! d (get-resolve-pipeline command-name payload))
