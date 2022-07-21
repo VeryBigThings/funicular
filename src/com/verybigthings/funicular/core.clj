@@ -8,8 +8,7 @@
             [sieppari.context :as sic]
             [clojure.string :as str]
             [com.verybigthings.funicular.anomalies :as anom]
-            [clojure.pprint]
-            [duct.logger :refer [log]]))
+            [clojure.pprint]))
 
 (defn deep-merge-malli-errors [a b]
   (merge-with (fn [x y]
@@ -149,13 +148,12 @@
    error)
   error)
 
-(defn make-root-error-interceptor [{:keys [logger]}]
-  {:error (fn [{:keys [request error] :as ctx}]
+(defn make-root-error-interceptor [_]
+  {:error (fn [{:keys [_request error] :as ctx}]
             (let [data (ex-data error)
                   response (if (contains? data :funicular.anomaly/category)
                              data
                              (anom/internal-error (ex-message error)))]
-              (log logger :error :funicular.request/error error)
               (-> ctx
                   (dissoc :error)
                   (assoc :response (sanitize-error-keys response)))))})
