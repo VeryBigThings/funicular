@@ -1,4 +1,4 @@
-(ns app.funicular-example
+(ns execute-example
   (:require [com.verybigthings.funicular.core :as fun]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
