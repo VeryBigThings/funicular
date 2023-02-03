@@ -15,25 +15,25 @@
                 (cond (map? y) (deep-merge-malli-errors x y)
                       (vector? y) (concat x y)
                       :else y))
-    a b))
+              a b))
 
 (defn interceptor-map? [val]
   (and map?
-    (seq (set/intersection
-           (-> val keys set)
-           #{:enter
-             :leave
-             :error}))))
+       (seq (set/intersection
+             (-> val keys set)
+             #{:enter
+               :leave
+               :error}))))
 
 (s/def :com.verybigthings.funicular.core.interceptor/enter fn?)
 (s/def :com.verybigthings.funicular.core.interceptor/leave fn?)
 (s/def :com.verybigthings.funicular.core.interceptor/error fn?)
 (s/def :com.verybigthings.funicular.core/interceptor
   (s/and
-    interceptor-map?
-    (s/keys :opt-un [:com.verybigthings.funicular.core.interceptor/enter
-                     :com.verybigthings.funicular.core.interceptor/leave
-                     :com.verybigthings.funicular.core.interceptor/error])))
+   interceptor-map?
+   (s/keys :opt-un [:com.verybigthings.funicular.core.interceptor/enter
+                    :com.verybigthings.funicular.core.interceptor/leave
+                    :com.verybigthings.funicular.core.interceptor/error])))
 
 (s/def ::input-schema any?)
 (s/def ::output-schema any?)
@@ -42,26 +42,26 @@
 
 (s/def ::resolver
   (s/and
-    map?
-    (s/keys
-      :opt-un [::rules
-               ::interceptors]
-      :req-un [::handler
-               ::input-schema
-               ::output-schema])))
+   map?
+   (s/keys
+    :opt-un [::rules
+             ::interceptors]
+    :req-un [::handler
+             ::input-schema
+             ::output-schema])))
 
 (s/def ::rule
   (s/or
-    :fn fn?
-    :and (s/cat
-           :op #(= % :and)
-           :rules (s/+ ::rule))
-    :or (s/cat
-          :op #(= % :or)
-          :rules (s/+ ::rule))
-    :not (s/cat
-           :op #(= % :not)
-           :rule ::rule)))
+   :fn fn?
+   :and (s/cat
+         :op #(= % :and)
+         :rules (s/+ ::rule))
+   :or (s/cat
+        :op #(= % :or)
+        :rules (s/+ ::rule))
+   :not (s/cat
+         :op #(= % :not)
+         :rule ::rule)))
 
 (s/def ::rules ::rule)
 
@@ -76,28 +76,28 @@
 
 (s/def ::context-props
   (s/and
-    map?
-    (s/keys
-      :opt-un [::interceptors
-               ::input-schema
-               ::rules
-               ::queries
-               ::commands])))
+   map?
+   (s/keys
+    :opt-un [::interceptors
+             ::input-schema
+             ::rules
+             ::queries
+             ::commands])))
 
 (s/def ::api-context-name
   (s/and
-    simple-keyword?
-    (s/or
-      :anon #{:<>}
-      :named any?)))
+   simple-keyword?
+   (s/or
+    :anon #{:<>}
+    :named any?)))
 
 (s/def ::api
   (s/and
-    vector?
-    (s/cat
-      :name ::api-context-name
-      :props (s/? ::context-props)
-      :api-subcontexts (s/* ::api))))
+   vector?
+   (s/cat
+    :name ::api-context-name
+    :props (s/? ::context-props)
+    :api-subcontexts (s/* ::api))))
 
 (s/def ::context
   map?)
@@ -110,27 +110,27 @@
 
 (s/def ::funicular
   (s/and
-    map?
-    (s/keys
-      :req-un [::api]
-      :opt-un [::pipes])))
+   map?
+   (s/keys
+    :req-un [::api]
+    :opt-un [::pipes])))
 
 (s/def :com.verybigthings.funicular.request/query
   (s/tuple keyword? any?))
 
 (s/def :com.verybigthings.funicular.request/queries
   (s/map-of
-    keyword? :com.verybigthings.funicular.request/query))
+   keyword? :com.verybigthings.funicular.request/query))
 
 (s/def :com.verybigthings.funicular.request/command
   (s/tuple keyword? any?))
 
 (s/def :com.verybigthings.funicular/request
   (s/and
-    map?
-    (s/keys
-      :opt-un [:com.verybigthings.funicular.request/command
-               :com.verybigthings.funicular.request/queries])))
+   map?
+   (s/keys
+    :opt-un [:com.verybigthings.funicular.request/command
+             :com.verybigthings.funicular.request/queries])))
 
 (def FunicularAnomaly
   [:map
@@ -139,24 +139,28 @@
 ;; TODO: Make this toggleable
 (defn sanitize-error-keys [error]
   (reduce-kv
-    (fn [acc k v]
-      (let [k-ns (namespace k)]
-        (if (or (= "funicular" k-ns) (str/starts-with? k-ns "funicular."))
-          (assoc acc k v)
-          acc)))
-    {}
-    error)
+   (fn [acc k v]
+     (let [k-ns (namespace k)]
+       (if (or (= "funicular" k-ns) (str/starts-with? k-ns "funicular."))
+         (assoc acc k v)
+         acc)))
+   {}
+   error)
   error)
 
-(def root-error-interceptor
-  {:error (fn [{:keys [error] :as ctx}]
-            (let [data     (ex-data error)
+(defn make-root-error-interceptor [_]
+  {:error (fn [{:keys [_request error] :as ctx}]
+            (let [data (ex-data error)
                   response (if (contains? data :funicular.anomaly/category)
                              data
                              (anom/internal-error (ex-message error)))]
               (-> ctx
-                (dissoc :error)
-                (assoc :response (sanitize-error-keys response)))))})
+                  (dissoc :error)
+                  (assoc :response (sanitize-error-keys response)))))})
+
+(defn make-root-nil-interceptor [namespaced-resolver-name]
+  {:leave (fn [ctx]
+            (update ctx :response #(or % (anom/unavailable (str namespaced-resolver-name " returned no data")))))})
 
 (defmulti enforce-rule (fn [_ [op & _]] op))
 
@@ -186,11 +190,6 @@
           (recur (rest rules))))
       false)))
 
-
-(defn log [arg]
-  (clojure.pprint/pprint arg)
-  arg)
-
 (defn with-context-name [acc {[context-type context-name] :name}]
   (if (= :named context-type)
     (update acc :path conj context-name)
@@ -209,38 +208,38 @@
    (humanize acc explanation nil))
   ([acc {:keys [value errors]} {f :wrap :or {f :message} :as options}]
    (if errors
-     (if (coll? value)
+     (when (coll? value)
        (reduce
-         (fn [acc error]
-           (let [error-path  (me/error-path error options)
-                 error-path' (if (seq error-path) error-path :funicular/errors)]
-             (update acc error-path' set-conj (f (me/with-error-message error options)))))
-         acc
-         errors))
+        (fn [acc error]
+          (let [error-path (me/error-path error options)
+                error-path' (if (seq error-path) error-path :funicular/errors)]
+            (update acc error-path' set-conj (f (me/with-error-message error options)))))
+        acc
+        errors))
      (reduce
-       (fn [acc error]
-         (update acc :funicular/errors set-conj (f (me/with-error-message error options))))
-       acc
-       errors))))
+      (fn [acc error]
+        (update acc :funicular/errors set-conj (f (me/with-error-message error options))))
+      acc
+      errors))))
 
 (defn schemas->validator-explainer [schemas opts]
   (let [ves (mapv
-              (fn [s] {:explainer (m/explainer s opts)
-                       :validator (m/validator s opts)})
-              schemas)]
+             (fn [s] {:explainer (m/explainer s opts)
+                      :validator (m/validator s opts)})
+             schemas)]
     (fn [data]
       (let [errors (reduce
-                     (fn [acc {:keys [explainer validator]}]
-                       (if (validator data)
-                         acc
-                         (->> data
-                           explainer
-                           (humanize acc))))
-                     {}
-                     ves)]
+                    (fn [acc {:keys [explainer validator]}]
+                      (if (validator data)
+                        acc
+                        (->> data
+                             explainer
+                             (humanize acc))))
+                    {}
+                    ves)]
         (->> errors
-          (mapv (fn [[k v]] [k (-> v sort vec)]))
-          (into {}))))))
+             (mapv (fn [[k v]] [k (-> v sort vec)]))
+             (into {}))))))
 
 (defn with-input-schema-interceptor
   "Given that an input schema is present on the current node,
@@ -253,7 +252,7 @@
           interceptor
           {:enter
            (fn [ctx]
-             (let [data   (get-in ctx [:request :data])
+             (let [data (get-in ctx [:request :data])
                    errors (validator-explainer data)]
                (if (empty? errors)
                  ctx
@@ -276,7 +275,7 @@
           {:leave (fn [{:keys [response] :as ctx}]
                     (if (funiculary-anomaly-validator response)
                       ctx
-                      (let [data   (get-in ctx [:response])
+                      (let [data (get-in ctx [:response])
                             errors (validator-explainer data)]
                         (if (empty? errors)
                           ctx
@@ -289,7 +288,7 @@
 (defn with-schema
   "Appends the schemas present on the current node
    onto a list of either input or output schemas."
-  [acc {:keys [input-schema output-schema]} opts]
+  [acc {:keys [input-schema output-schema]} _]
   (cond-> acc
     input-schema
     (update :input-schemas conj input-schema)
@@ -308,7 +307,7 @@
    At runtime, the interceptor checks if the rule is satisfied.
    If the rule fails, an early exit happens and no further
    interceptors are executed."
-  [acc {:keys [rules]} opts]
+  [acc {:keys [rules]} _]
   (let [interceptor (fn [{:keys [request] :as ctx}]
                       (if rules
                         (if (enforce-rule request rules)
@@ -321,31 +320,33 @@
   "Compiles command and query resolvers"
   [acc resolver-type props opts]
   (reduce-kv
-    (fn [acc' resolver-name {:keys [handler] :as resolver}]
-      (let [{:keys [interceptors input-schemas output-schemas]}
-            (-> acc
-              (with-rules resolver opts)
-              (with-interceptors resolver)
-              (with-schema resolver opts)
-              (with-input-schema-interceptor opts)
-              (update :interceptors conj handler)
-              (with-output-schema-interceptor opts))
+   (fn [acc' resolver-name {:keys [handler] :as resolver}]
+     (let [{:keys [interceptors input-schemas output-schemas]}
+           (-> acc
+               (with-rules resolver opts)
+               (with-interceptors resolver)
+               (with-schema resolver opts)
+               (with-input-schema-interceptor opts)
+               (update :interceptors conj handler)
+               (with-output-schema-interceptor opts))
 
-            namespaced-resolver-name (make-namespaced-resolver-name (:path acc) resolver-name)]
-        (when (get-in acc' [:resolvers namespaced-resolver-name])
-          (throw (ex-info "Duplicate resolver" {:error ::duplicate-resolver
-                                                :resolver namespaced-resolver-name})))
-        (assoc-in acc' [:resolvers namespaced-resolver-name] {:chain (into [root-error-interceptor] interceptors)
-                                                              :input-schemas input-schemas
-                                                              :output-schemas output-schemas
-                                                              :input-schema (last input-schemas)
-                                                              :output-schema (last output-schemas)
-                                                              :path (:path acc)
-                                                              :name resolver-name
-                                                              :ns-name namespaced-resolver-name
-                                                              :type ({:commands :command :queries :query} resolver-type)})))
-    acc
-    (get props resolver-type)))
+           namespaced-resolver-name (make-namespaced-resolver-name (:path acc) resolver-name)]
+       (when (get-in acc' [:resolvers namespaced-resolver-name])
+         (throw (ex-info "Duplicate resolver" {:error ::duplicate-resolver
+                                               :resolver namespaced-resolver-name})))
+       (assoc-in acc' [:resolvers namespaced-resolver-name] {:chain (into [(make-root-nil-interceptor namespaced-resolver-name)
+                                                                           (make-root-error-interceptor opts)]
+                                                                          interceptors)
+                                                             :input-schemas input-schemas
+                                                             :output-schemas output-schemas
+                                                             :input-schema (last input-schemas)
+                                                             :output-schema (last output-schemas)
+                                                             :path (:path acc)
+                                                             :name resolver-name
+                                                             :ns-name namespaced-resolver-name
+                                                             :type ({:commands :command :queries :query} resolver-type)})))
+   acc
+   (get props resolver-type)))
 
 (declare compile-api)
 
@@ -353,42 +354,42 @@
   "Compiles the child subcontexts (all document nodes below the current node)."
   [acc {:keys [api-subcontexts]} opts]
   (reduce
-    (fn [acc' api-subcontext]
-      (let [resolvers (:resolvers (compile-api acc' api-subcontext opts))]
-        (update acc' :resolvers merge resolvers)))
-    acc
-    api-subcontexts))
+   (fn [acc' api-subcontext]
+     (let [resolvers (:resolvers (compile-api acc' api-subcontext opts))]
+       (update acc' :resolvers merge resolvers)))
+   acc
+   api-subcontexts))
 
 (defn compile-api
   "Compiles the `:api` section of the Funicular document"
   ([context opts] (compile-api {:path [] :interceptors [] :input-schemas [] :output-schemas []} context opts))
   ([acc {:keys [props] :as context} opts]
    (-> acc
-     (with-context-name context)
-     (with-rules props opts)
-     (with-schema props opts)
-     (with-interceptors props)
-     (with-resolvers :commands props opts)
-     (with-resolvers :queries props opts)
-     (with-api-subcontexts context opts))))
+       (with-context-name context)
+       (with-rules props opts)
+       (with-schema props opts)
+       (with-interceptors props)
+       (with-resolvers :commands props opts)
+       (with-resolvers :queries props opts)
+       (with-api-subcontexts context opts))))
 
 (defn compile-pipes
   "Compiles the `:pipes` section of the Funicular document"
-  [pipes resolvers opts]
+  [pipes resolvers _]
   (reduce-kv
-    (fn [acc source->target pipe]
-      (let [[source target] source->target]
-        (when (not= :command (get-in resolvers [source :type]))
-          (throw (ex-info "Non existent command" {:command source
-                                                  :error :non-existent-command})))
-        (when (not= :query (get-in resolvers [target :type]))
-          (throw (ex-info "Non existent query" {:query target
-                                                :error :non-existent-query})))
-        (assoc acc source->target {:enter (fn [ctx]
-                                            (let [request (:request ctx)]
-                                              (assoc ctx :request (pipe request))))})))
-    {}
-    pipes))
+   (fn [acc source->target pipe]
+     (let [[source target] source->target]
+       (when (not= :command (get-in resolvers [source :type]))
+         (throw (ex-info "Non existent command" {:command source
+                                                 :error :non-existent-command})))
+       (when (not= :query (get-in resolvers [target :type]))
+         (throw (ex-info "Non existent query" {:query target
+                                               :error :non-existent-query})))
+       (assoc acc source->target {:enter (fn [ctx]
+                                           (let [request (:request ctx)]
+                                             (assoc ctx :request (pipe request))))})))
+   {}
+   pipes))
 
 (defn compile
   "Compiles the Funicular definition file into a data struture that can be executed by `execute`"
@@ -408,7 +409,8 @@
 (defn execute-command [acc compiled context {:keys [command]}]
   (if command
     (let [[command-name command-data] command
-          chain (get-in compiled [:resolvers command-name :chain])
+          resolver (get-in compiled [:resolvers command-name])
+          chain (when (= :command (:type resolver)) (:chain resolver))
           res (if chain
                 (si/execute chain (assoc context :data command-data :command command-name))
                 (anom/not-found "Command not found" (make-missing-command-error command-name command-data)))]
@@ -420,35 +422,37 @@
    :data query-data
    :funicular.anomaly/subcategory :funicular.anomaly.category.not-found/query})
 
-;; TODO queries should return errors when command returns error
 (defn execute-queries [{:keys [command] :as acc} compiled context {:keys [queries]}]
   (let [[command-name command-res] command]
     (reduce-kv
-      (fn [acc' query-alias [query-name query-data]]
-        (let [chain (get-in compiled [:resolvers query-name :chain])]
-          (if chain
-            (let [pipe (get-in compiled [:pipes [command-name query-name]])
-                  context' (-> (if command
-                                 (assoc context :command {:name command-name :response command-res})
-                                 context)
-                              (assoc :query query-name)
-                              (assoc :data query-data))
-                  chain' (if pipe (into [pipe] chain) chain)
-                 res (si/execute chain' context')]
-              (assoc-in acc' [:queries query-alias] [query-name res]))
-            (assoc-in acc' [:queries query-alias] [query-name (anom/not-found "Query not found" (make-missing-query-error query-name query-data))]))))
-      acc
-      queries)))
+     (fn [acc' query-alias [query-name query-data]]
+       (let [resolver (get-in compiled [:resolvers query-name])
+             chain (when (= :query (:type resolver)) (:chain resolver))]
+         (if chain
+           (if (contains? command-res :funicular.anomaly/category)
+             (assoc-in acc' [:queries query-alias] [query-name (anom/internal-error (str "Command " command-name " failed"))])
+             (let [pipe (get-in compiled [:pipes [command-name query-name]])
+                   context' (-> (if command
+                                  (assoc context :command {:name command-name :response command-res})
+                                  context)
+                                (assoc :query query-name)
+                                (assoc :data query-data))
+                   chain' (if pipe (into [pipe] chain) chain)
+                   res (si/execute chain' context')]
+               (assoc-in acc' [:queries query-alias] [query-name res])))
+           (assoc-in acc' [:queries query-alias] [query-name (anom/not-found "Query not found" (make-missing-query-error query-name query-data))]))))
+     acc
+     queries)))
 
 (defn execute [compiled context request]
   (s/assert :com.verybigthings.funicular/request request)
   (-> {}
-    (execute-command compiled context request)
-    (execute-queries compiled context request)))
+      (execute-command compiled context request)
+      (execute-queries compiled context request)))
 
 (defn inspect [compiled]
   (->> compiled
-    :resolvers
-    (map (fn [[k v]] [k (select-keys v [:input-schemas :input-schema :output-schemas :output-schema :type])]))
-    (sort-by (fn [[k _]] (str k)))
-    vec))
+       :resolvers
+       (map (fn [[k v]] [k (select-keys v [:input-schemas :input-schema :output-schemas :output-schema :type])]))
+       (sort-by (fn [[k _]] (str k)))
+       vec))
